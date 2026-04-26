@@ -79,6 +79,7 @@ function createSearchCard(search, campgroundName) {
             <div class="search-title">${campgroundName}</div>
             <div>
                 <span class="search-status status-active">${search.status}</span>
+                <button class="btn btn-primary" onclick="scanNow(${search.id})" style="padding: 8px 12px; font-size: 0.9em; margin-right: 5px;">Scan Now</button>
                 <button class="btn btn-danger" onclick="deleteSearch(${search.id})">Delete</button>
             </div>
         </div>
@@ -199,6 +200,30 @@ async function deleteSearch(searchId) {
     } catch (error) {
         console.error('Error deleting search:', error);
         showMessage('Error deleting search', 'error');
+    }
+}
+
+async function scanNow(searchId) {
+    try {
+        showMessage('Scanning for availability...', 'success');
+
+        const response = await fetch('/api/scraper/run', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        if (response.ok) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            loadAvailability(searchId);
+            showMessage('Scan complete! Availability updated.', 'success');
+        } else {
+            showMessage('Error scanning availability', 'error');
+        }
+    } catch (error) {
+        console.error('Error scanning:', error);
+        showMessage('Error scanning: ' + error.message, 'error');
     }
 }
 
