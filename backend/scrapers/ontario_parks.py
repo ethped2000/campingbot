@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import time
 import logging
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,6 @@ def check_availability(park_id, check_in_date, check_out_date, site_type=None):
                     site_id = f"{park_id}_site_{site_num}"
                     site_name = f"{park_id} - Campsite {site_num}"
 
-                    import random
                     is_available = random.random() > 0.6
 
                     availability_results.append({
