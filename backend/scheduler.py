@@ -43,23 +43,34 @@ def run_scraper_job():
                     search.site_type
                 )
 
+                # Group by site_id to check if available for entire date range
+                sites_by_id = {}
                 for site in availability_data:
+                    site_id = site['site_id'].split('_')[0] + '_site_' + site['site_id'].split('_')[-1]
+                    if site_id not in sites_by_id:
+                        sites_by_id[site_id] = {'site_name': site['site_name'], 'dates': []}
+                    sites_by_id[site_id]['dates'].append({'date': site['date'], 'available': site['available']})
+
+                # Only store sites that are available for ALL dates in the range
+                for site_id, site_data in sites_by_id.items():
+                    all_available = all(d['available'] for d in site_data['dates'])
+
+                    # Store a single record per site indicating if available for entire range
                     existing = db.query(Availability).filter(
                         Availability.search_id == search.id,
-                        Availability.site_id == site['site_id'],
-                        Availability.date == site['date']
+                        Availability.site_id == site_id
                     ).first()
 
                     if existing:
-                        existing.available = site['available']
+                        existing.available = all_available
                         existing.last_checked = datetime.now()
                     else:
                         db_availability = Availability(
                             search_id=search.id,
-                            site_id=site['site_id'],
-                            site_name=site['site_name'],
-                            date=site['date'],
-                            available=site['available']
+                            site_id=site_id,
+                            site_name=site_data['site_name'],
+                            date=search.check_in_date,
+                            available=all_available
                         )
                         db.add(db_availability)
 
