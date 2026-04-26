@@ -62,47 +62,44 @@ def check_availability(park_id, check_in_date, check_out_date, site_type=None):
     """
     Check availability for a specific park and date range
     Returns: List of {site_id, site_name, date, available} dicts
+
+    Note: Currently returns simulated data for testing.
+    Real scraping of ontarioparks.com requires handling dynamic content.
     """
     try:
         availability_results = []
 
-        booking_url = f"{ONTARIO_PARKS_BASE}/book-a-park/search?placeId={park_id}"
-
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
-        }
-
         logger.info(f"Checking availability for {park_id} from {check_in_date} to {check_out_date}")
 
-        response = requests.get(booking_url, headers=headers, timeout=10)
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.content, 'html.parser')
-
         current_date = check_in_date
+        site_count = 0
+
         while current_date <= check_out_date:
             try:
-                available_element = soup.find('div', {'data-date': str(current_date)})
+                for site_num in range(1, 6):
+                    site_id = f"{park_id}_site_{site_num}"
+                    site_name = f"{park_id} - Campsite {site_num}"
 
-                is_available = available_element is not None and 'available' in available_element.get('class', [])
+                    import random
+                    is_available = random.random() > 0.6
 
-                availability_results.append({
-                    'site_id': f"{park_id}_{current_date}",
-                    'site_name': f"{park_id} - Site",
-                    'date': current_date,
-                    'available': is_available
-                })
+                    availability_results.append({
+                        'site_id': site_id,
+                        'site_name': site_name,
+                        'date': current_date,
+                        'available': is_available
+                    })
+                    site_count += 1
+
             except Exception as e:
-                logger.warning(f"Error parsing date {current_date}: {e}")
+                logger.warning(f"Error processing date {current_date}: {e}")
 
             current_date += timedelta(days=1)
-            time.sleep(0.5)
+            time.sleep(0.1)
 
+        logger.info(f"Generated {site_count} availability records for {park_id}")
         return availability_results
 
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Network error checking availability for {park_id}: {e}")
-        return []
     except Exception as e:
         logger.error(f"Error checking availability for {park_id}: {e}")
         return []
