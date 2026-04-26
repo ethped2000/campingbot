@@ -54,8 +54,15 @@ async function loadCampgrounds() {
 
 async function loadSearches() {
     try {
+        console.log('Loading searches from API...');
         const response = await fetch(`${API_BASE}/searches/`);
+
+        if (!response.ok) {
+            throw new Error(`API returned ${response.status}`);
+        }
+
         const searches = await response.json();
+        console.log(`Found ${searches.length} searches in database`);
 
         // Save to localStorage for persistence
         saveSearchesToMemory(searches);
@@ -63,8 +70,13 @@ async function loadSearches() {
         const searchesList = document.getElementById('searchesList');
 
         if (searches.length === 0) {
-            searchesList.innerHTML = '<p class="empty-state">No searches yet. Add one above!</p>';
-            return;
+            const cached = getSearchesFromMemory();
+            if (cached && cached.length > 0) {
+                console.log('Database empty but found cached searches in localStorage');
+            } else {
+                searchesList.innerHTML = '<p class="empty-state">No searches yet. Add one above!</p>';
+                return;
+            }
         }
 
         searchesList.innerHTML = '';
@@ -75,12 +87,12 @@ async function loadSearches() {
             searchesList.appendChild(card);
         }
     } catch (error) {
-        console.error('Error loading searches:', error);
+        console.error('Error loading searches from API:', error);
 
         // If API fails, try to use cached searches from localStorage
         const cachedSearches = getSearchesFromMemory();
         if (cachedSearches && cachedSearches.length > 0) {
-            console.log('Using cached searches from localStorage');
+            console.log(`Using ${cachedSearches.length} cached searches from localStorage`);
             const searchesList = document.getElementById('searchesList');
             searchesList.innerHTML = '';
 
@@ -89,6 +101,9 @@ async function loadSearches() {
                 const card = createSearchCard(search, campground);
                 searchesList.appendChild(card);
             }
+        } else {
+            console.warn('No searches found in API or localStorage');
+            document.getElementById('searchesList').innerHTML = '<p class="empty-state">Could not load searches. Check console.</p>';
         }
     }
 }
