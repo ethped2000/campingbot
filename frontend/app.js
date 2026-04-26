@@ -72,45 +72,63 @@ async function loadSearches() {
         if (searches.length === 0) {
             const cached = getSearchesFromMemory();
             if (cached && cached.length > 0) {
-                console.log('Database empty but found cached searches in localStorage');
+                console.log(`Database empty but found ${cached.length} cached searches in localStorage - restoring...`);
+                // Database lost searches, restore from cache
+                displaySearches(cached);
+                // Try to sync back to database
+                for (const search of cached) {
+                    try {
+                        await fetch(`${API_BASE}/searches/`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                campground_id: search.campground_id,
+                                site_type: search.site_type,
+                                check_in_date: search.check_in_date,
+                                check_out_date: search.check_out_date
+                            })
+                        });
+                    } catch (e) {
+                        console.warn(`Could not restore search to database: ${e}`);
+                    }
+                }
+                return;
             } else {
                 searchesList.innerHTML = '<p class="empty-state">No searches yet. Add one above!</p>';
                 return;
             }
         }
 
-        searchesList.innerHTML = '';
-
-        for (const search of searches) {
-            const card = createSearchCard(search, 'Loading...');
-            searchesList.appendChild(card);
-
-            getCampgroundName(search.campground_id).then(campground => {
-                const title = card.querySelector('.search-title');
-                if (title) {
-                    title.textContent = campground;
-                }
-            });
-        }
+        displaySearches(searches);
     } catch (error) {
         console.error('Error loading searches from API:', error);
 
-        // If API fails, try to use cached searches from localStorage
+        // If API fails, use cached searches from localStorage
         const cachedSearches = getSearchesFromMemory();
         if (cachedSearches && cachedSearches.length > 0) {
-            console.log(`Using ${cachedSearches.length} cached searches from localStorage`);
-            const searchesList = document.getElementById('searchesList');
-            searchesList.innerHTML = '';
-
-            for (const search of cachedSearches) {
-                const campground = await getCampgroundName(search.campground_id);
-                const card = createSearchCard(search, campground);
-                searchesList.appendChild(card);
-            }
+            console.log(`API failed, using ${cachedSearches.length} cached searches from localStorage`);
+            displaySearches(cachedSearches);
         } else {
             console.warn('No searches found in API or localStorage');
             document.getElementById('searchesList').innerHTML = '<p class="empty-state">Could not load searches. Check console.</p>';
         }
+    }
+}
+
+function displaySearches(searches) {
+    const searchesList = document.getElementById('searchesList');
+    searchesList.innerHTML = '';
+
+    for (const search of searches) {
+        const card = createSearchCard(search, 'Loading...');
+        searchesList.appendChild(card);
+
+        getCampgroundName(search.campground_id).then(campground => {
+            const title = card.querySelector('.search-title');
+            if (title) {
+                title.textContent = campground;
+            }
+        });
     }
 }
 
