@@ -8,6 +8,7 @@ import json
 logger = logging.getLogger(__name__)
 
 ONTARIO_PARKS_BASE = "https://www.ontarioparks.com"
+BOOKING_BASE = "https://www.ontarioparks.com/en/reserve-a-park"
 
 ALL_ONTARIO_PARKS = [
     {"name": "Algonquin Provincial Park", "park_id": "algonquin", "region": "Central Ontario"},
@@ -67,9 +68,29 @@ def check_availability(park_id, check_in_date, check_out_date, site_type=None):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
 
-        booking_url = f"https://www.ontarioparks.com/book-a-park/{park_id}"
+        # Try multiple URL formats
+        urls_to_try = [
+            f"https://www.ontarioparks.com/en/reserve-a-park/campsites?park={park_id}",
+            f"https://www.ontarioparks.com/reserve/{park_id}",
+            f"https://www.ontarioparks.com/book-a-park/{park_id}",
+        ]
 
-        response = requests.get(booking_url, headers=headers, timeout=15)
+        response = None
+        for booking_url in urls_to_try:
+            try:
+                logger.debug(f"Trying URL: {booking_url}")
+                response = requests.get(booking_url, headers=headers, timeout=15)
+                if response.status_code == 200:
+                    logger.debug(f"Found valid URL: {booking_url}")
+                    break
+                response.raise_for_status()
+            except Exception as e:
+                logger.debug(f"URL {booking_url} failed: {e}")
+                response = None
+                continue
+
+        if response is None or response.status_code != 200:
+            raise Exception(f"Could not find valid booking page for {park_id}")
         response.raise_for_status()
 
         soup = BeautifulSoup(response.content, 'html.parser')
