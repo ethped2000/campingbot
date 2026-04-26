@@ -82,9 +82,15 @@ async function loadSearches() {
         searchesList.innerHTML = '';
 
         for (const search of searches) {
-            const campground = await getCampgroundName(search.campground_id);
-            const card = createSearchCard(search, campground);
+            const card = createSearchCard(search, 'Loading...');
             searchesList.appendChild(card);
+
+            getCampgroundName(search.campground_id).then(campground => {
+                const title = card.querySelector('.search-title');
+                if (title) {
+                    title.textContent = campground;
+                }
+            });
         }
     } catch (error) {
         console.error('Error loading searches from API:', error);
