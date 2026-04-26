@@ -83,15 +83,8 @@ def get_chrome_driver():
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-popup-blocking")
     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-    options.binary_location = "/usr/bin/chromium"
 
-    try:
-        service = Service("/usr/bin/chromedriver")
-        driver = webdriver.Chrome(service=service, options=options)
-    except Exception as e:
-        logger.warning(f"Chromedriver failed: {e}, trying with Chrome options...")
-        driver = webdriver.Chrome(options=options)
-
+    driver = webdriver.Chrome(options=options)
     return driver
 
 

@@ -1,13 +1,6 @@
-FROM python:3.11-slim
+FROM mcr.microsoft.com/playwright/python:v1.40.0-focal
 
 WORKDIR /app
-
-RUN apt-get update && apt-get install -y \
-    chromium \
-    chromium-driver \
-    libnss3 \
-    libxss1 \
-    && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
