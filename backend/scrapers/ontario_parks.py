@@ -77,11 +77,11 @@ def check_availability(park_id, check_in_date, check_out_date, site_type=None):
 
         while current_date <= check_out_date:
             try:
-                for site_num in range(1, 31):
+                for site_num in range(1, 151):
                     site_id = f"{park_id}_site_{site_num}"
                     site_name = f"{park_id} - Campsite {site_num}"
 
-                    is_available = random.random() > 0.65
+                    is_available = random.random() > 0.7
 
                     availability_results.append({
                         'site_id': site_id,

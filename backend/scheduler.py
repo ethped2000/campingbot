@@ -53,28 +53,34 @@ def run_scraper_job():
 
                 # Only store sites that are available for ALL dates in the range
                 for site_id, site_data in sites_by_id.items():
-                    all_available = all(d['available'] for d in site_data['dates'])
+                    dates_list = site_data['dates']
+                    num_dates = len(dates_list)
+                    available_count = sum(1 for d in dates_list if d['available'])
+                    all_available = available_count == num_dates
 
-                    # Store a single record per site indicating if available for entire range
-                    existing = db.query(Availability).filter(
-                        Availability.search_id == search.id,
-                        Availability.site_id == site_id
-                    ).first()
+                    logger.debug(f"Site {site_id}: {available_count}/{num_dates} dates available")
 
-                    if existing:
-                        existing.available = all_available
-                        existing.last_checked = datetime.now()
-                    else:
-                        db_availability = Availability(
-                            search_id=search.id,
-                            site_id=site_id,
-                            site_name=site_data['site_name'],
-                            date=search.check_in_date,
-                            available=all_available
-                        )
-                        db.add(db_availability)
+                    # Only store if available for ALL dates
+                    if all_available:
+                        existing = db.query(Availability).filter(
+                            Availability.search_id == search.id,
+                            Availability.site_id == site_id
+                        ).first()
 
-                    total_availability_records += 1
+                        if existing:
+                            existing.available = True
+                            existing.last_checked = datetime.now()
+                        else:
+                            db_availability = Availability(
+                                search_id=search.id,
+                                site_id=site_id,
+                                site_name=site_data['site_name'],
+                                date=search.check_in_date,
+                                available=True
+                            )
+                            db.add(db_availability)
+
+                        total_availability_records += 1
 
             except Exception as e:
                 logger.error(f"Error processing search {search.id}: {e}")
