@@ -3,6 +3,11 @@ from sqlalchemy.orm import Session
 from datetime import date
 from typing import Optional
 from pydantic import BaseModel
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from models import Search, Campground, Availability
 from database import get_db
 

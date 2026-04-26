@@ -1,7 +1,12 @@
 import os
+import sys
+from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
+
+sys.path.insert(0, str(Path(__file__).parent))
+
 from models import Base
 
 load_dotenv()

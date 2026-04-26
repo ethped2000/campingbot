@@ -2,7 +2,11 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+
 from database import init_db
 from routes import searches, campgrounds
 
