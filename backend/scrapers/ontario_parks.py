@@ -88,34 +88,48 @@ def check_availability(park_id, check_in_date, check_out_date, site_type=None):
             logger.warning(f"Park {park_id} not in PARK_IDS mapping")
             return []
 
-        park_resource_id = PARK_IDS[park_id]
+        park_map_id = PARK_IDS[park_id]
         availability_results = []
+
+        # Create session and prime it to bypass Azure WAF
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-CA,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+        })
+
+        # Prime session by loading main page (establishes WAF cookies)
+        try:
+            logger.debug(f"Priming session with main page...")
+            session.get('https://reservations.ontarioparks.ca/', timeout=10)
+            logger.debug(f"Session primed successfully")
+        except Exception as e:
+            logger.warning(f"Session priming failed: {e}, continuing anyway")
 
         # Query API for each day in the range
         current_date = check_in_date
         while current_date <= check_out_date:
             try:
-                # Build API request payload
-                payload = {
-                    "transactionLocationId": -2147483559,
-                    "resourceLocationId": park_resource_id,
-                    "startDate": current_date.strftime('%Y-%m-%d'),
-                    "endDate": current_date.strftime('%Y-%m-%d'),
-                    "equipmentTypeId": None
-                }
-
-                logger.debug(f"Querying API for {park_id} on {current_date}: {payload}")
-
-                response = requests.post(
-                    AVAILABILITY_API,
-                    json=payload,
-                    timeout=10,
-                    headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+                # Build API URL with query parameters
+                api_url = (
+                    f"https://reservations.ontarioparks.ca/api/availability/map?"
+                    f"mapId={park_map_id}&"
+                    f"startDate={current_date.strftime('%Y-%m-%d')}&"
+                    f"endDate={current_date.strftime('%Y-%m-%d')}&"
+                    f"bookingCategoryId=0&"
+                    f"equipmentCategoryId=-32768&"
+                    f"boatLength=0&boatDraft=0&boatWidth=0"
                 )
+
+                logger.debug(f"Querying API for {park_id} on {current_date}")
+
+                response = session.get(api_url, timeout=10)
 
                 if response.status_code == 200:
                     data = response.json()
-                    logger.debug(f"API response for {current_date}: {json.dumps(data, indent=2)}")
+                    logger.debug(f"API response received for {current_date}")
 
                     # Parse availability data
                     if 'mapLinkAvailabilities' in data:
@@ -135,7 +149,7 @@ def check_availability(park_id, check_in_date, check_out_date, site_type=None):
                                 logger.debug(f"Error parsing site {site_id_str}: {e}")
                                 continue
 
-                    logger.info(f"Found {len(availability_results)} available sites on {current_date}")
+                    logger.info(f"Found {len([a for a in availability_results if a['date'] == current_date and a['available']])} available sites on {current_date}")
                 else:
                     logger.warning(f"API returned {response.status_code} for {park_id} on {current_date}")
 
