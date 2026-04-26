@@ -153,9 +153,10 @@ async function getCampgroundName(campgroundId) {
 }
 
 function formatDate(dateString) {
-    // Parse YYYY-MM-DD without timezone conversion
+    // Format date in Eastern Time
     const [year, month, day] = dateString.split('-');
-    return new Date(year, month - 1, day).toLocaleDateString();
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString('en-US', { timeZone: 'America/Toronto' });
 }
 
 function createSearchCard(search, campgroundName) {
