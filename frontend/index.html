@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CampingBot - Ontario Parks Availability Tracker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏕️ CampingBot</h1>
+            <p>Ontario Parks Campground Availability Tracker</p>
+        </header>
+
+        <main>
+            <!-- Add New Search Form -->
+            <section class="search-form-section">
+                <h2>Add New Search</h2>
+                <form id="searchForm">
+                    <div class="form-group">
+                        <label for="campground">Select Campground:</label>
+                        <select id="campground" required>
+                            <option value="">Loading campgrounds...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="siteType">Site Type (Optional):</label>
+                        <input type="text" id="siteType" placeholder="e.g., Tent, RV">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="checkInDate">Check-in Date:</label>
+                        <input type="date" id="checkInDate" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="checkOutDate">Check-out Date:</label>
+                        <input type="date" id="checkOutDate" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Add Search</button>
+                </form>
+            </section>
+
+            <!-- Active Searches -->
+            <section class="searches-section">
+                <h2>Active Searches</h2>
+                <div id="searchesList" class="searches-list">
+                    <p class="empty-state">No searches yet. Add one above!</p>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>CampingBot v1.0 - Built with FastAPI & PostgreSQL</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
