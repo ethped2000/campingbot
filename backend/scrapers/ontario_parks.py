@@ -7,26 +7,11 @@ import json
 logger = logging.getLogger(__name__)
 
 PARK_IDS = {
-    "algonquin": -2147483559,
-    "presquile": -2147483563,
-    "killarney": -2147483548,
-    "pinery": -2147483551,
-    "pukaskwa": -2147483555,
-    "temagami": -2147483560,
-    "quetico": -2147483549,
-    "nipigon": -2147483552,
-    "grundy": -2147483556,
-    "sturgeon": -2147483554,
-    "awenda": -2147483557,
-    "balsam": -2147483558,
-    "cascade": -2147483550,
-    "cat": -2147483546,
-    "clyde": -2147483547,
-    "driftwood": -2147483561,
-    "earl_rowe": -2147483562,
-    "ferryland": -2147483564,
-    "ganaraska": -2147483565,
-    "gowganda": -2147483566,
+    "presquile": -2147483302,
+    "algonquin": -2147483171,
+    "pinery": -2147483334,
+    "killarney": -2147483434,
+    "bon_echo": -2147483590,
 }
 
 AVAILABILITY_API = "https://reservations.ontarioparks.ca/api/availability/map"
