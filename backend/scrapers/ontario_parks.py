@@ -122,21 +122,51 @@ def check_availability(park_id, check_in_date, check_out_date, site_type=None):
         driver = get_chrome_driver()
         driver.get(url)
 
-        # Wait for site items to load
-        wait = WebDriverWait(driver, 10)
-        try:
-            wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "site-item")))
-        except:
-            logger.warning(f"Timeout waiting for site items, attempting to parse current page")
+        # Wait for page to load - try multiple selectors
+        wait = WebDriverWait(driver, 15)
+        page_loaded = False
+        selectors_to_try = [
+            (By.CLASS_NAME, "site-item"),
+            (By.CLASS_NAME, "campsite"),
+            (By.CLASS_NAME, "site"),
+            (By.XPATH, "//div[@class*='site']"),
+            (By.TAG_NAME, "body"),  # At least wait for body to exist
+        ]
+
+        for selector in selectors_to_try:
+            try:
+                wait.until(EC.presence_of_element_located(selector))
+                logger.debug(f"Found element with selector: {selector}")
+                page_loaded = True
+                break
+            except:
+                continue
 
         # Give additional time for dynamic content
-        time.sleep(2)
+        time.sleep(3)
 
         # Parse page with BeautifulSoup
         soup = BeautifulSoup(driver.page_source, 'html.parser')
 
+        # Log page title and body content for debugging
+        logger.debug(f"Page title: {soup.title}")
+        logger.debug(f"Page source length: {len(driver.page_source)} chars")
+
         availability_results = []
+
+        # Try multiple selectors to find sites
         site_items = soup.find_all('div', class_='site-item')
+        if not site_items:
+            site_items = soup.find_all('div', class_='campsite')
+        if not site_items:
+            site_items = soup.find_all('div', class_='site')
+        if not site_items:
+            site_items = soup.find_all('li', class_=True)  # Any li with a class
+        if not site_items:
+            # Log all divs to see structure
+            all_divs = soup.find_all('div')
+            logger.warning(f"Could not find site items, found {len(all_divs)} total divs")
+            logger.debug(f"First 5 divs: {[div.get('class') for div in all_divs[:5]]}")
 
         logger.info(f"Found {len(site_items)} site items for {park_id}")
 
