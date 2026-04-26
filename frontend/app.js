@@ -152,12 +152,18 @@ async function getCampgroundName(campgroundId) {
     }
 }
 
+function formatDate(dateString) {
+    // Parse YYYY-MM-DD without timezone conversion
+    const [year, month, day] = dateString.split('-');
+    return new Date(year, month - 1, day).toLocaleDateString();
+}
+
 function createSearchCard(search, campgroundName) {
     const card = document.createElement('div');
     card.className = 'search-card';
 
-    const checkInDate = new Date(search.check_in_date).toLocaleDateString();
-    const checkOutDate = new Date(search.check_out_date).toLocaleDateString();
+    const checkInDate = formatDate(search.check_in_date);
+    const checkOutDate = formatDate(search.check_out_date);
 
     card.innerHTML = `
         <div class="search-header">
