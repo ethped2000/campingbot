@@ -24,7 +24,28 @@ class CampgroundResponse(BaseModel):
         from_attributes = True
 
 
+class CampgroundCreate(BaseModel):
+    name: str
+    park_id: Optional[str] = None
+    region: Optional[str] = None
+    url: Optional[str] = None
+
+
 @router.get("/", response_model=list[CampgroundResponse])
 def get_campgrounds(db: Session = Depends(get_db)):
     campgrounds = db.query(Campground).all()
     return campgrounds
+
+
+@router.post("/", response_model=CampgroundResponse)
+def create_campground(campground: CampgroundCreate, db: Session = Depends(get_db)):
+    db_campground = Campground(
+        name=campground.name,
+        park_id=campground.park_id,
+        region=campground.region,
+        url=campground.url
+    )
+    db.add(db_campground)
+    db.commit()
+    db.refresh(db_campground)
+    return db_campground
