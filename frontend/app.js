@@ -182,31 +182,16 @@ async function loadAvailability(searchId) {
         }
 
         const availableSites = availability.filter(item => item.available);
-        const unavailableSites = availability.filter(item => !item.available);
-
-        let html = '';
 
         if (availableSites.length > 0) {
-            html += '<div style="margin-bottom: 15px;"><strong style="color: #28a745;">✓ Available for your dates:</strong>';
-            html += availableSites.map(item => `
+            container.innerHTML = availableSites.map(item => `
                 <div class="availability-item" style="background: #d4edda; border-left: 4px solid #28a745;">
                     <strong>${item.site_name || 'Site ' + item.site_id}</strong>
                 </div>
             `).join('');
-            html += '</div>';
+        } else {
+            container.innerHTML = '<p style="color: #dc3545; font-weight: bold;">❌ No available sites for your dates</p>';
         }
-
-        if (unavailableSites.length > 0) {
-            html += '<div><strong style="color: #dc3545;">✗ Not available:</strong>';
-            html += unavailableSites.map(item => `
-                <div class="availability-item" style="background: #f8d7da; border-left: 4px solid #dc3545; opacity: 0.7;">
-                    <strong>${item.site_name || 'Site ' + item.site_id}</strong>
-                </div>
-            `).join('');
-            html += '</div>';
-        }
-
-        container.innerHTML = html || '<p style="color: #999;">No sites found for these dates.</p>';
     } catch (error) {
         console.error('Error loading availability:', error);
         const container = document.getElementById(`availability-${searchId}`);
