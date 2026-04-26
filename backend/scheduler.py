@@ -1,6 +1,11 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 import logging
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+
 from database import SessionLocal
 from models import Search, Availability
 from scrapers.ontario_parks import check_availability
