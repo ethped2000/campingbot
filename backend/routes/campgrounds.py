@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 import sys
 from pathlib import Path
@@ -31,7 +31,7 @@ class CampgroundCreate(BaseModel):
     url: Optional[str] = None
 
 
-@router.get("/", response_model=list[CampgroundResponse])
+@router.get("/", response_model=List[CampgroundResponse])
 def get_campgrounds(db: Session = Depends(get_db)):
     campgrounds = db.query(Campground).all()
     return campgrounds

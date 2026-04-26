@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import date
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel
 import sys
 from pathlib import Path
@@ -44,7 +44,7 @@ class AvailabilityResponse(BaseModel):
         from_attributes = True
 
 
-@router.get("/", response_model=list[SearchResponse])
+@router.get("/", response_model=List[SearchResponse])
 def get_searches(db: Session = Depends(get_db)):
     searches = db.query(Search).all()
     return searches
@@ -79,7 +79,7 @@ def delete_search(search_id: int, db: Session = Depends(get_db)):
     return {"message": "Search deleted successfully"}
 
 
-@router.get("/{search_id}/availability", response_model=list[AvailabilityResponse])
+@router.get("/{search_id}/availability", response_model=List[AvailabilityResponse])
 def get_availability(search_id: int, db: Session = Depends(get_db)):
     search = db.query(Search).filter(Search.id == search_id).first()
     if not search:
