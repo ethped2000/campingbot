@@ -7,6 +7,26 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('searchForm').addEventListener('submit', handleAddSearch);
 });
 
+// Save searches to localStorage for persistence
+function saveSearchesToMemory(searches) {
+    try {
+        localStorage.setItem('campingbot_searches', JSON.stringify(searches));
+    } catch (e) {
+        console.warn('Could not save to localStorage:', e);
+    }
+}
+
+// Load searches from localStorage if available
+function getSearchesFromMemory() {
+    try {
+        const cached = localStorage.getItem('campingbot_searches');
+        return cached ? JSON.parse(cached) : null;
+    } catch (e) {
+        console.warn('Could not load from localStorage:', e);
+        return null;
+    }
+}
+
 async function loadCampgrounds() {
     try {
         const response = await fetch(`${API_BASE}/campgrounds/`);
@@ -37,6 +57,9 @@ async function loadSearches() {
         const response = await fetch(`${API_BASE}/searches/`);
         const searches = await response.json();
 
+        // Save to localStorage for persistence
+        saveSearchesToMemory(searches);
+
         const searchesList = document.getElementById('searchesList');
 
         if (searches.length === 0) {
@@ -53,6 +76,20 @@ async function loadSearches() {
         }
     } catch (error) {
         console.error('Error loading searches:', error);
+
+        // If API fails, try to use cached searches from localStorage
+        const cachedSearches = getSearchesFromMemory();
+        if (cachedSearches && cachedSearches.length > 0) {
+            console.log('Using cached searches from localStorage');
+            const searchesList = document.getElementById('searchesList');
+            searchesList.innerHTML = '';
+
+            for (const search of cachedSearches) {
+                const campground = await getCampgroundName(search.campground_id);
+                const card = createSearchCard(search, campground);
+                searchesList.appendChild(card);
+            }
+        }
     }
 }
 
@@ -150,7 +187,7 @@ async function handleAddSearch(e) {
     const checkOutDate = document.getElementById('checkOutDate').value;
 
     if (!campgroundId || !checkInDate || !checkOutDate) {
-        alert('Please fill in all required fields');
+        showMessage('Please fill in all required fields', 'error');
         return;
     }
 
@@ -170,10 +207,11 @@ async function handleAddSearch(e) {
 
         if (response.ok) {
             document.getElementById('searchForm').reset();
-            loadSearches();
             showMessage('Search added successfully!', 'success');
+            await loadSearches();
         } else {
-            showMessage('Error adding search', 'error');
+            const errorData = await response.json();
+            showMessage('Error adding search: ' + (errorData.detail || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Error adding search:', error);
@@ -192,14 +230,15 @@ async function deleteSearch(searchId) {
         });
 
         if (response.ok) {
-            loadSearches();
             showMessage('Search deleted successfully!', 'success');
+            await loadSearches();
         } else {
-            showMessage('Error deleting search', 'error');
+            const errorData = await response.json();
+            showMessage('Error deleting search: ' + (errorData.detail || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Error deleting search:', error);
-        showMessage('Error deleting search', 'error');
+        showMessage('Error deleting search: ' + error.message, 'error');
     }
 }
 
