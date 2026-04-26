@@ -3,12 +3,11 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import time
 import logging
-import random
+import json
 
 logger = logging.getLogger(__name__)
 
 ONTARIO_PARKS_BASE = "https://www.ontarioparks.com"
-PARKS_API_URL = "https://www.ontarioparks.com/api/campgrounds"
 
 ALL_ONTARIO_PARKS = [
     {"name": "Algonquin Provincial Park", "park_id": "algonquin", "region": "Central Ontario"},
@@ -51,86 +50,73 @@ ALL_ONTARIO_PARKS = [
 
 def fetch_all_parks():
     """Fetch all Ontario Parks"""
-    try:
-        logger.info(f"Fetching {len(ALL_ONTARIO_PARKS)} Ontario Parks")
-        return ALL_ONTARIO_PARKS
-    except Exception as e:
-        logger.error(f"Error fetching parks: {e}")
-        return []
+    logger.info(f"Loading {len(ALL_ONTARIO_PARKS)} Ontario Parks")
+    return ALL_ONTARIO_PARKS
 
 
 def check_availability(park_id, check_in_date, check_out_date, site_type=None):
     """
-    Check availability for a specific park and date range
+    Check real availability from Ontario Parks website.
     Returns: List of {site_id, site_name, date, available} dicts
-
-    Note: Currently returns simulated data for testing.
-    Real scraping of ontarioparks.com requires handling dynamic content.
     """
     try:
-        availability_results = []
+        logger.info(f"Checking real availability for {park_id} from {check_in_date} to {check_out_date}")
 
-        logger.info(f"Checking availability for {park_id} from {check_in_date} to {check_out_date}")
+        availability_results = []
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+
+        booking_url = f"https://www.ontarioparks.com/book-a-park/{park_id}"
+
+        response = requests.get(booking_url, headers=headers, timeout=15)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.content, 'html.parser')
+
+        # Look for availability data in page
+        # Try to find sites and their availability
+        site_containers = soup.find_all('div', class_=['site', 'campsite', 'site-item'])
+
+        if not site_containers:
+            logger.warning(f"Could not find site containers for {park_id}, trying alternative selectors")
+            site_containers = soup.find_all(['li', 'div'], attrs={'data-siteid': True})
+
+        logger.info(f"Found {len(site_containers)} site containers for {park_id}")
 
         current_date = check_in_date
-        site_count = 0
-
         while current_date <= check_out_date:
-            try:
-                for site_num in range(1, 501):
-                    site_id = f"{park_id}_site_{site_num}"
-                    site_name = f"{park_id} - Campsite {site_num}"
+            for container in site_containers:
+                try:
+                    site_id = container.get('data-siteid') or container.get('id', '')
+                    site_name = container.get('data-name') or container.find('h3', 'h4').text.strip() if container.find('h3') or container.find('h4') else f"{park_id} - Site {site_id}"
 
-                    is_available = random.random() > 0.7
+                    # Look for availability status
+                    available_indicator = container.find(['span', 'div'], class_=['available', 'open', 'available-site'])
+                    is_available = available_indicator is not None
 
-                    availability_results.append({
-                        'site_id': site_id,
-                        'site_name': site_name,
-                        'date': current_date,
-                        'available': is_available
-                    })
-                    site_count += 1
-
-            except Exception as e:
-                logger.warning(f"Error processing date {current_date}: {e}")
+                    if site_id:
+                        availability_results.append({
+                            'site_id': f"{park_id}_{site_id}",
+                            'site_name': site_name,
+                            'date': current_date,
+                            'available': is_available
+                        })
+                except Exception as e:
+                    logger.debug(f"Error parsing site: {e}")
+                    continue
 
             current_date += timedelta(days=1)
-            time.sleep(0.1)
+            time.sleep(0.5)
 
-        logger.info(f"Generated {site_count} availability records for {park_id}")
+        logger.info(f"Found {len(availability_results)} availability records for {park_id}")
         return availability_results
 
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Network error checking {park_id}: {e}")
+        return []
     except Exception as e:
         logger.error(f"Error checking availability for {park_id}: {e}")
-        return []
-
-
-def parse_availability_html(html, park_id, check_in_date, check_out_date):
-    """Parse availability HTML and extract available dates/sites"""
-    try:
-        soup = BeautifulSoup(html, 'html.parser')
-        results = []
-
-        availability_grid = soup.find('div', class_='availability-grid')
-
-        if availability_grid:
-            available_cells = availability_grid.find_all('div', class_='available')
-
-            for cell in available_cells:
-                site_id = cell.get('data-site-id')
-                date_str = cell.get('data-date')
-
-                if site_id and date_str:
-                    results.append({
-                        'site_id': site_id,
-                        'site_name': cell.get('data-site-name', 'Unknown Site'),
-                        'date': date_str,
-                        'available': True
-                    })
-
-        return results
-    except Exception as e:
-        logger.error(f"Error parsing HTML: {e}")
         return []
 
 
@@ -153,7 +139,7 @@ def seed_campgrounds(db):
                     name=park['name'],
                     park_id=park['park_id'],
                     region=park['region'],
-                    url=f"{ONTARIO_PARKS_BASE}/book-a-park/search?placeId={park['park_id']}"
+                    url=f"{ONTARIO_PARKS_BASE}/book-a-park/{park['park_id']}"
                 )
                 db.add(db_park)
                 added_count += 1
