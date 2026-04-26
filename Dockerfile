@@ -2,6 +2,17 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y \
+    chromium-browser \
+    chromium-chromedriver \
+    libnss3 \
+    libxss1 \
+    fonts-liberation \
+    libappindicator1 \
+    libindicator7 \
+    xdg-utils \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
