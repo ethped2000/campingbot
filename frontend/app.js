@@ -73,12 +73,12 @@ async function loadSearches() {
             const cached = getSearchesFromMemory();
             if (cached && cached.length > 0) {
                 console.log(`Database empty but found ${cached.length} cached searches in localStorage - restoring...`);
-                // Database lost searches, restore from cache
-                displaySearches(cached);
-                // Try to sync back to database
+
+                // Recreate all cached searches in the database
+                let restoredCount = 0;
                 for (const search of cached) {
                     try {
-                        await fetch(`${API_BASE}/searches/`, {
+                        const response = await fetch(`${API_BASE}/searches/`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -88,10 +88,19 @@ async function loadSearches() {
                                 check_out_date: search.check_out_date
                             })
                         });
+                        if (response.ok) {
+                            restoredCount++;
+                            console.log(`Restored search ${restoredCount}/${cached.length}`);
+                        }
                     } catch (e) {
-                        console.warn(`Could not restore search to database: ${e}`);
+                        console.error(`Error restoring search: ${e}`);
                     }
                 }
+
+                console.log(`Restored ${restoredCount} searches to database`);
+
+                // Reload from database after sync
+                setTimeout(() => loadSearches(), 1000);
                 return;
             } else {
                 searchesList.innerHTML = '<p class="empty-state">No searches yet. Add one above!</p>';
