@@ -1,13 +1,8 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from bs4 import BeautifulSoup
+import requests
 from datetime import datetime, timedelta
 import time
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +28,8 @@ PARK_IDS = {
     "ganaraska": -2147483565,
     "gowganda": -2147483566,
 }
+
+AVAILABILITY_API = "https://reservations.ontarioparks.ca/api/availability/map"
 
 ALL_ONTARIO_PARKS = [
     {"name": "Algonquin Provincial Park", "park_id": "algonquin", "region": "Central Ontario"},
@@ -73,21 +70,6 @@ ALL_ONTARIO_PARKS = [
 ]
 
 
-def get_chrome_driver():
-    """Create and return a Selenium Chrome WebDriver"""
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--disable-extensions")
-    options.add_argument("--disable-popup-blocking")
-    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-
-    driver = webdriver.Chrome(options=options)
-    return driver
-
-
 def fetch_all_parks():
     """Fetch all Ontario Parks"""
     logger.info(f"Loading {len(ALL_ONTARIO_PARKS)} Ontario Parks")
@@ -96,10 +78,9 @@ def fetch_all_parks():
 
 def check_availability(park_id, check_in_date, check_out_date, site_type=None):
     """
-    Check real availability from Ontario Parks reservation system using Selenium.
+    Check real availability from Ontario Parks API.
     Returns: List of {site_id, site_name, date, available} dicts
     """
-    driver = None
     try:
         logger.info(f"Checking availability for {park_id} from {check_in_date} to {check_out_date}")
 
@@ -108,108 +89,70 @@ def check_availability(park_id, check_in_date, check_out_date, site_type=None):
             return []
 
         park_resource_id = PARK_IDS[park_id]
-
-        # Build reservation URL
-        url = (
-            f"https://reservations.ontarioparks.ca/create-booking/results?"
-            f"transactionLocationId=-2147483559&resourceLocationId={park_resource_id}&"
-            f"startDate={check_in_date.strftime('%Y-%m-%d')}&"
-            f"endDate={check_out_date.strftime('%Y-%m-%d')}"
-        )
-
-        logger.info(f"Loading URL: {url}")
-
-        driver = get_chrome_driver()
-        driver.get(url)
-
-        # Wait for page to load - try multiple selectors
-        wait = WebDriverWait(driver, 15)
-        page_loaded = False
-        selectors_to_try = [
-            (By.CLASS_NAME, "site-item"),
-            (By.CLASS_NAME, "campsite"),
-            (By.CLASS_NAME, "site"),
-            (By.XPATH, "//div[@class*='site']"),
-            (By.TAG_NAME, "body"),  # At least wait for body to exist
-        ]
-
-        for selector in selectors_to_try:
-            try:
-                wait.until(EC.presence_of_element_located(selector))
-                logger.debug(f"Found element with selector: {selector}")
-                page_loaded = True
-                break
-            except:
-                continue
-
-        # Give additional time for dynamic content
-        time.sleep(3)
-
-        # Parse page with BeautifulSoup
-        soup = BeautifulSoup(driver.page_source, 'html.parser')
-
-        # Log page title and body content for debugging
-        logger.debug(f"Page title: {soup.title}")
-        logger.debug(f"Page source length: {len(driver.page_source)} chars")
-
         availability_results = []
 
-        # Try multiple selectors to find sites
-        site_items = soup.find_all('div', class_='site-item')
-        if not site_items:
-            site_items = soup.find_all('div', class_='campsite')
-        if not site_items:
-            site_items = soup.find_all('div', class_='site')
-        if not site_items:
-            site_items = soup.find_all('li', class_=True)  # Any li with a class
-        if not site_items:
-            # Log all divs to see structure
-            all_divs = soup.find_all('div')
-            logger.warning(f"Could not find site items, found {len(all_divs)} total divs")
-            logger.debug(f"First 5 divs: {[div.get('class') for div in all_divs[:5]]}")
-
-        logger.info(f"Found {len(site_items)} site items for {park_id}")
-
-        # For each site, check availability across all dates
-        for idx, site_item in enumerate(site_items):
+        # Query API for each day in the range
+        current_date = check_in_date
+        while current_date <= check_out_date:
             try:
-                # Extract site ID and name
-                site_id = site_item.get('data-site-id') or site_item.get('id', f'site_{idx}')
-                site_name = site_item.get('data-site-name') or site_item.get('title', f'Site {site_id}')
+                # Build API request payload
+                payload = {
+                    "transactionLocationId": -2147483559,
+                    "resourceLocationId": park_resource_id,
+                    "startDate": current_date.strftime('%Y-%m-%d'),
+                    "endDate": current_date.strftime('%Y-%m-%d'),
+                    "equipmentTypeId": None
+                }
 
-                # Check if site is available (look for available class or status)
-                available_class = site_item.get('class', [])
-                is_available = 'available' in available_class or 'open' in available_class
+                logger.debug(f"Querying API for {park_id} on {current_date}: {payload}")
 
-                # Alternative: check for availability indicator elements
-                if not is_available:
-                    available_indicator = site_item.find(['span', 'div'], class_=['available', 'open'])
-                    is_available = available_indicator is not None
+                response = requests.post(
+                    AVAILABILITY_API,
+                    json=payload,
+                    timeout=10,
+                    headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+                )
 
-                if site_id:
-                    availability_results.append({
-                        'site_id': f"{park_id}_{site_id}",
-                        'site_name': site_name,
-                        'date': check_in_date,
-                        'available': is_available
-                    })
+                if response.status_code == 200:
+                    data = response.json()
+                    logger.debug(f"API response for {current_date}: {json.dumps(data, indent=2)}")
 
+                    # Parse availability data
+                    if 'mapLinkAvailabilities' in data:
+                        for site_id_str, availability_codes in data['mapLinkAvailabilities'].items():
+                            try:
+                                site_id = int(site_id_str)
+                                # Availability code meanings: 0=booked, 6=available, etc
+                                is_available = 6 in availability_codes or any(code > 0 for code in availability_codes)
+
+                                availability_results.append({
+                                    'site_id': f"{park_id}_{site_id}",
+                                    'site_name': f"Site {site_id}",
+                                    'date': current_date,
+                                    'available': is_available
+                                })
+                            except Exception as e:
+                                logger.debug(f"Error parsing site {site_id_str}: {e}")
+                                continue
+
+                    logger.info(f"Found {len(availability_results)} available sites on {current_date}")
+                else:
+                    logger.warning(f"API returned {response.status_code} for {park_id} on {current_date}")
+
+            except requests.exceptions.Timeout:
+                logger.warning(f"API timeout for {park_id} on {current_date}")
             except Exception as e:
-                logger.debug(f"Error parsing site item: {e}")
-                continue
+                logger.error(f"Error querying API for {park_id} on {current_date}: {e}")
 
-        logger.info(f"Found {len(availability_results)} availability records for {park_id}")
+            current_date += timedelta(days=1)
+            time.sleep(0.5)  # Rate limiting
+
+        logger.info(f"Found {len(availability_results)} total availability records for {park_id}")
         return availability_results
 
     except Exception as e:
         logger.error(f"Error checking availability for {park_id}: {e}", exc_info=True)
         return []
-    finally:
-        if driver:
-            try:
-                driver.quit()
-            except:
-                pass
 
 
 def seed_campgrounds(db):
